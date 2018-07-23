@@ -1,0 +1,166 @@
+From 518d44eda140b2c2b00769fbb9b46fc1cff71da6 Mon Sep 17 00:00:00 2001
+From: Mihails Strasuns <mihails.strasuns@gmail.com>
+Date: Mon, 23 Jul 2018 14:33:02 +0300
+Subject: [PATCH 15/15] Use 2.079 for bootstrapping
+
+---
+ src/SYSCONFDIR.imp | 1 +
+ src/dtemplate.d    | 6 +++++-
+ src/expression.d   | 4 ++--
+ src/func.d         | 4 ++--
+ src/mars.d         | 2 ++
+ src/parse.d        | 2 +-
+ src/posix.mak      | 2 +-
+ src/root/rmem.d    | 8 ++++----
+ src/utf.d          | 2 +-
+ 9 files changed, 19 insertions(+), 12 deletions(-)
+ create mode 100644 src/SYSCONFDIR.imp
+
+diff --git a/src/SYSCONFDIR.imp b/src/SYSCONFDIR.imp
+new file mode 100644
+index 0000000..34ed534
+--- /dev/null
++++ b/src/SYSCONFDIR.imp
+@@ -0,0 +1 @@
++/etc
+\ No newline at end of file
+diff --git a/src/dtemplate.d b/src/dtemplate.d
+index 730d33d..a04e5ed 100644
+--- a/src/dtemplate.d
++++ b/src/dtemplate.d
+@@ -3665,7 +3665,11 @@ extern (C++) MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplatePara
+                     RootObject o2 = (*tp.tempinst.tiargs)[i];
+                     Type t2 = isType(o2);
+                     size_t j;
+-                    if (t2 && t2.ty == Tident && i == tp.tempinst.tiargs.dim - 1 && (j = templateParameterLookup(t2, parameters), j != IDX_NOTFOUND) && j == parameters.dim - 1 && (*parameters)[j].isTemplateTupleParameter())
++                    if (t2 && t2.ty == Tident
++                           && i == tp.tempinst.tiargs.dim - 1
++                           && ((j = templateParameterLookup(t2, parameters)) != IDX_NOTFOUND)
++                           && j == parameters.dim - 1
++                           && (*parameters)[j].isTemplateTupleParameter())
+                     {
+                         /* Given:
+                          *  struct A(B...) {}
+diff --git a/src/expression.d b/src/expression.d
+index 842697e..b1fef9c 100644
+--- a/src/expression.d
++++ b/src/expression.d
+@@ -12363,8 +12363,8 @@ public:
+                     DotVarExp dve;
+                     if (sd.ctor &&
+                         e2y.op == TOKcall &&
+-                        (ce = cast(CallExp)e2y, ce.e1.op == TOKdotvar) &&
+-                        (dve = cast(DotVarExp)ce.e1, dve.var.isCtorDeclaration()) &&
++                        ((ce = cast(CallExp)e2y).e1.op == TOKdotvar) &&
++                        ((dve = cast(DotVarExp)ce.e1).var.isCtorDeclaration()) &&
+                         e2y.type.implicitConvTo(t1))
+                     {
+                         /* Look for form of constructor call which is:
+diff --git a/src/func.d b/src/func.d
+index e8a3301..1939448 100644
+--- a/src/func.d
++++ b/src/func.d
+@@ -1263,7 +1263,7 @@ public:
+          * the function body.
+          */
+         TemplateInstance ti;
+-        if (fbody && (isFuncLiteralDeclaration() || (storage_class & STCinference) || (inferRetType && !isCtorDeclaration()) || isInstantiated() && !isVirtualMethod() && !(ti = parent.isTemplateInstance(), ti && !ti.isTemplateMixin() && ti.tempdecl.ident != ident)))
++        if (fbody && (isFuncLiteralDeclaration() || (storage_class & STCinference) || (inferRetType && !isCtorDeclaration()) || isInstantiated() && !isVirtualMethod() && !((ti = parent.isTemplateInstance()) !is null && !ti.isTemplateMixin() && ti.tempdecl.ident != ident)))
+         {
+             if (f.purity == PUREimpure) // purity not specified
+                 flags |= FUNCFLAGpurityInprocess;
+@@ -2277,7 +2277,7 @@ public:
+ 
+         TemplateInstance ti;
+         if (isInstantiated() && !isVirtualMethod() &&
+-            !(ti = parent.isTemplateInstance(), ti && !ti.isTemplateMixin() && ti.tempdecl.ident != ident))
++            !((ti = parent.isTemplateInstance()) !is null && !ti.isTemplateMixin() && ti.tempdecl.ident != ident))
+         {
+             AggregateDeclaration ad = isMember2();
+             if (ad && ad.sizeok != SIZEOKdone)
+diff --git a/src/mars.d b/src/mars.d
+index 641c732..30bb491 100644
+--- a/src/mars.d
++++ b/src/mars.d
+@@ -139,6 +139,8 @@ extern (C++) void ensurePathToNameExists(Loc loc, const(char)* name)
+     FileName.free(pt);
+ }
+ 
++// workaround to override more restrictive signature in used runtime version
++extern(C) long strtol(const char* nptr, const char** endptr, int base);
+ 
+ /**
+  * Print DMD's logo on stdout
+diff --git a/src/parse.d b/src/parse.d
+index ef8db63..8298c42 100644
+--- a/src/parse.d
++++ b/src/parse.d
+@@ -2664,7 +2664,7 @@ public:
+                         if ((storageClass & STCscope) && (storageClass & (STCref | STCout)))
+                             error("scope cannot be ref or out");
+                         Token* t;
+-                        if (tpl && token.value == TOKidentifier && (t = peek(&token), (t.value == TOKcomma || t.value == TOKrparen || t.value == TOKdotdotdot)))
++                        if (tpl && token.value == TOKidentifier && (((t = peek(&token)).value == TOKcomma || t.value == TOKrparen || t.value == TOKdotdotdot)))
+                         {
+                             Identifier id = Identifier.generateId("__T");
+                             const loc = token.loc;
+diff --git a/src/posix.mak b/src/posix.mak
+index e8262f6..ed646f1 100644
+--- a/src/posix.mak
++++ b/src/posix.mak
+@@ -66,7 +66,7 @@ ifeq (,$(AUTO_BOOTSTRAP))
+   HOST_DMD_RUN:=$(HOST_DMD)
+ else
+   # Auto-bootstrapping, will download dmd automatically
+-  HOST_DMD_VER=2.068.2
++  HOST_DMD_VER=2.079.1
+   HOST_DMD_ROOT=/tmp/.host_dmd-$(HOST_DMD_VER)
+   # dmd.2.068.2.osx.zip or dmd.2.068.2.linux.tar.xz
+   HOST_DMD_BASENAME=dmd.$(HOST_DMD_VER).$(OS)$(if $(filter $(OS),freebsd),-$(MODEL),)
+diff --git a/src/root/rmem.d b/src/root/rmem.d
+index a0a0cfd..5bf553f 100644
+--- a/src/root/rmem.d
++++ b/src/root/rmem.d
+@@ -172,22 +172,22 @@ else
+ 
+         extern (C) Object _d_newclass(const ClassInfo ci) nothrow
+         {
+-            auto p = allocmemory(ci.init.length);
+-            p[0 .. ci.init.length] = cast(void[])ci.init[];
++            auto p = allocmemory(ci.initializer.length);
++            p[0 .. ci.initializer.length] = cast(void[])ci.initializer[];
+             return cast(Object)p;
+         }
+ 
+         extern (C) void* _d_newitemT(TypeInfo ti) nothrow
+         {
+             auto p = allocmemory(ti.tsize);
+-            (cast(ubyte*)p)[0 .. ti.init.length] = 0;
++            (cast(ubyte*)p)[0 .. ti.initializer.length] = 0;
+             return p;
+         }
+ 
+         extern (C) void* _d_newitemiT(TypeInfo ti) nothrow
+         {
+             auto p = allocmemory(ti.tsize);
+-            p[0 .. ti.init.length] = ti.init[];
++            p[0 .. ti.initializer.length] = ti.initializer[];
+             return p;
+         }
+     }
+diff --git a/src/utf.d b/src/utf.d
+index 6e50285..43177f3 100644
+--- a/src/utf.d
++++ b/src/utf.d
+@@ -308,7 +308,7 @@ bool isUniAlpha(dchar c)
+  */
+ int utf_codeLengthChar(dchar c)
+ {
+-    return c <= 0x7F ? 1 : c <= 0x7FF ? 2 : c <= 0xFFFF ? 3 : c <= 0x10FFFF ? 4 : (assert(false), 6);
++    return c <= 0x7F ? 1 : c <= 0x7FF ? 2 : c <= 0xFFFF ? 3 : c <= 0x10FFFF ? 4 : 6;
+ }
+ 
+ int utf_codeLengthWchar(dchar c)
+-- 
+2.17.1
+
