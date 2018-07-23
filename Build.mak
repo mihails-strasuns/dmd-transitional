@@ -29,7 +29,7 @@ dmd/.git/config: $(dmd_patches)
 	$(call git_clone,dmd)
 
 dmd/src/dmd: dmd/.git/config
-	$(MAKE) -C dmd -f posix.mak MODEL=64 RELEASE=1 AUTO_BOOTSTRAP=1
+	$(MAKE) -C dmd -f posix.mak MODEL=64 RELEASE=1 AUTO_BOOTSTRAP=1 PIC=1 HOST_CXX=g++
 
 # In the case of druntime, the splitting of fetching and building makes even
 # more sense because then we can do both buildings in parallel with -j
